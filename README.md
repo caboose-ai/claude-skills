@@ -2,7 +2,7 @@
 
 Powerline-style status bar for Claude Code with dynamic segments and a rotating quips easter egg when effort is set to max.
 
-![Maximum Effort Status Line](./maximum-effort-statusline/assets/statusline-preview.png)
+![Maximum Effort Status Line](https://raw.githubusercontent.com/caboose-ai/claude-skills/main/maximum-effort-statusline/assets/statusline-preview.png)
 
 ## Segments
 
