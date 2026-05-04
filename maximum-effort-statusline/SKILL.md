@@ -7,6 +7,8 @@ description: Powerline-style Claude Code status bar with dynamic segments (direc
 
 A powerline-style status bar for Claude Code that shows directory, model, cost/tokens, and git info — plus a rotating quips easter egg when you crank effort to max.
 
+![Maximum Effort Status Line](./assets/statusline-preview.png)
+
 ## What It Does
 
 Adds a colorful, dynamically-sized status line to Claude Code with these segments:

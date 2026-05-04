@@ -8,6 +8,8 @@ A collection of skills for Claude Code.
 
 Powerline-style Claude Code status bar with dynamic segments (directory, model, cost, git) and a rotating quips easter egg when effort is set to max.
 
+![Maximum Effort Status Line](./maximum-effort-statusline/assets/statusline-preview.png)
+
 **Install:**
 
 ```bash
