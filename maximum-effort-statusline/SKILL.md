@@ -1,11 +1,11 @@
 ---
 name: maximum-effort-statusline
-description: Powerline-style Claude Code status bar with dynamic segments (directory, model, cost, git, usage pace) and a rotating quips easter egg when effort is set to max
+description: Powerline-style Claude Code status bar with dynamic segments (directory, model, context %, lines +/-, cost, git, usage pace) and a rotating quips easter egg at xhigh/max effort
 ---
 
 # Maximum Effort Status Line
 
-A powerline-style status bar for Claude Code that shows directory, model, cost/tokens, git, and usage pace — plus a rotating quips easter egg when you crank effort to max.
+A powerline-style status bar for Claude Code that shows directory, model, context window usage, lines changed, cost/tokens, git, and usage pace — plus a rotating quips easter egg when you crank effort to xhigh or max.
 
 ![Maximum Effort Status Line](https://raw.githubusercontent.com/caboose-ai/claude-skills/main/maximum-effort-statusline/assets/statusline-preview.png)
 
@@ -14,8 +14,10 @@ A powerline-style status bar for Claude Code that shows directory, model, cost/t
 Adds a colorful, dynamically-sized status line to Claude Code with these segments:
 
 - **📂 Directory** — current working directory with smart truncation (purple)
-- **🧠/⚡/🚀 Model** — detected model with emoji (green)
-- **💀 Max Effort Quips** — rotating one-liners when effort is set to max (red) — a fun motivational easter egg
+- **📊 Model** — "Model: Opus 4.6" style display (green)
+- **📈 Context Window** — context % of total window, color-coded: teal < 50%, orange 50-79%, red 80%+ (teal/orange/red)
+- **✏️ Lines Changed** — green `+N`, red `-N` diff stats for the session (slate)
+- **💀 Effort Quips** — rotating one-liners when effort is set to xhigh or max (red) — a fun motivational easter egg
 - **💵 Cost/Tokens** — session spend and token count (yellow)
 - ** Git** — branch with status indicators: `!` modified, `?` untracked, `+` staged (dark)
 - **📊 Usage Pace** — 5h/7d rate limit pace tracking with time-to-reset (dark, conditional)
@@ -52,16 +54,24 @@ TERM_WIDTH=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
 # --- Parse session data ---
 if command -v jq &> /dev/null && [[ -n "$SESSION_DATA" ]]; then
   MODEL=$(echo "$SESSION_DATA" | jq -r 'if (.model | type) == "object" then .model.id // .model.display_name // empty elif .model then .model else empty end' 2>/dev/null)
-  TOKENS=$(echo "$SESSION_DATA" | jq -r '.total_input_tokens // .tokensUsed // empty' 2>/dev/null)
-  COST=$(echo "$SESSION_DATA" | jq -r '.total_cost_usd // .costUSD // empty' 2>/dev/null)
+  TOKENS=$(echo "$SESSION_DATA" | jq -r '.context_window.total_input_tokens // .total_input_tokens // empty' 2>/dev/null)
+  COST=$(echo "$SESSION_DATA" | jq -r '.cost.total_cost_usd // .total_cost_usd // empty' 2>/dev/null)
   EFFORT=$(echo "$SESSION_DATA" | jq -r '.effort.level // empty' 2>/dev/null)
   CURRENT_DIR=$(echo "$SESSION_DATA" | jq -r '.workspace.current_dir // empty' 2>/dev/null)
+  CTX_PCT=$(echo "$SESSION_DATA" | jq -r '.context_window.used_percentage // empty' 2>/dev/null)
+  CTX_SIZE=$(echo "$SESSION_DATA" | jq -r '.context_window.context_window_size // empty' 2>/dev/null)
+  LINES_ADDED=$(echo "$SESSION_DATA" | jq -r '.cost.total_lines_added // empty' 2>/dev/null)
+  LINES_REMOVED=$(echo "$SESSION_DATA" | jq -r '.cost.total_lines_removed // empty' 2>/dev/null)
 else
   MODEL=""
   TOKENS=""
   COST=""
   EFFORT=""
   CURRENT_DIR=""
+  CTX_PCT=""
+  CTX_SIZE=""
+  LINES_ADDED=""
+  LINES_REMOVED=""
 fi
 
 [[ -z "$CURRENT_DIR" ]] && CURRENT_DIR="$PWD"
@@ -256,26 +266,78 @@ DIR_SEGMENT="${BOLD}${FG_BLACK}${BG_PURPLE} 📂 ${CWD_SHORT} ${RESET}"
 SEGMENTS="${DIR_SEGMENT}"
 LAST_BG="${FG_PURPLE}"
 
-# Model segment with emoji
+# Model segment — "Model: Opus 4.6" style
 if [[ -n "$MODEL" ]]; then
-  case "$MODEL" in
-    *opus*|*Opus*) MODEL_EMOJI="🧠" ;;
-    *sonnet*|*Sonnet*) MODEL_EMOJI="⚡" ;;
-    *haiku*|*Haiku*) MODEL_EMOJI="🚀" ;;
-    *) MODEL_EMOJI="🤖" ;;
-  esac
+  MODEL_CLEAN=$(echo "$MODEL" | sed 's/^[a-z]*\.anthropic\.//; s/^anthropic\.//; s/^claude-//')
+  MODEL_FAMILY_LC=$(echo "$MODEL_CLEAN" | sed 's/-.*//')
+  MODEL_FAMILY=$(echo "$MODEL_FAMILY_LC" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+  MODEL_VERSION=$(echo "$MODEL_CLEAN" | sed "s/^${MODEL_FAMILY_LC}-//; s/-v[0-9].*//; s/\[.*//; s/-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$//; s/-/./")
+  MODEL_DISPLAY="Model: ${MODEL_FAMILY} ${MODEL_VERSION}"
 
-  MODEL_SHORT="$MODEL"
-  MODEL_SHORT=$(echo "$MODEL_SHORT" | sed 's/^[a-z]*\.anthropic\.//; s/^anthropic\.//')
-  MODEL_SHORT=$(echo "$MODEL_SHORT" | sed 's/^claude-//; s/-v[0-9].*//; s/-[0-9]*-[0-9]*$//; s/\[.*\]//')
-
-  MODEL_SEGMENT="${LAST_BG}${BG_GREEN}${RESET}${BOLD}${FG_BLACK}${BG_GREEN} ${MODEL_EMOJI} ${MODEL_SHORT} ${RESET}"
+  MODEL_SEGMENT="${LAST_BG}${BG_GREEN}${RESET}${BOLD}${FG_BLACK}${BG_GREEN} 📊 ${MODEL_DISPLAY} ${RESET}"
   SEGMENTS="${SEGMENTS}${MODEL_SEGMENT}"
   LAST_BG="${FG_GREEN}"
 fi
 
+# Context window segment 📈
+if [[ -n "$CTX_PCT" ]]; then
+  if [[ -n "$CTX_SIZE" ]] && [[ "$CTX_SIZE" -gt 0 ]] 2>/dev/null; then
+    if [[ "$CTX_SIZE" -ge 1000000 ]]; then
+      CTX_SIZE_FMT="$(( CTX_SIZE / 1000000 ))M"
+    elif [[ "$CTX_SIZE" -ge 1000 ]]; then
+      CTX_SIZE_FMT="$(( CTX_SIZE / 1000 ))k"
+    else
+      CTX_SIZE_FMT="$CTX_SIZE"
+    fi
+    CTX_DISPLAY="Ctx: ${CTX_PCT}% of ${CTX_SIZE_FMT}"
+  else
+    CTX_DISPLAY="Ctx: ${CTX_PCT}%"
+  fi
+
+  BG_TEAL="\033[48;2;80;180;180m"
+  FG_TEAL="\033[38;2;80;180;180m"
+  if [[ "$CTX_PCT" -ge 80 ]] 2>/dev/null; then
+    BG_TEAL="\033[48;2;200;40;40m"
+    FG_TEAL="\033[38;2;200;40;40m"
+  elif [[ "$CTX_PCT" -ge 50 ]] 2>/dev/null; then
+    BG_TEAL="\033[48;2;255;180;80m"
+    FG_TEAL="\033[38;2;255;180;80m"
+  fi
+
+  CTX_SEGMENT="${LAST_BG}${BG_TEAL}${RESET}${BOLD}${FG_BLACK}${BG_TEAL} 📈 ${CTX_DISPLAY} ${RESET}"
+  SEGMENTS="${SEGMENTS}${CTX_SEGMENT}"
+  LAST_BG="${FG_TEAL}"
+fi
+
+# Lines changed segment ✏️
+if [[ -n "$LINES_ADDED" ]] || [[ -n "$LINES_REMOVED" ]]; then
+  LINES_ADDED=${LINES_ADDED:-0}
+  LINES_REMOVED=${LINES_REMOVED:-0}
+  if [[ "$LINES_ADDED" -gt 0 ]] 2>/dev/null || [[ "$LINES_REMOVED" -gt 0 ]] 2>/dev/null; then
+    BG_SLATE="\033[48;2;70;80;100m"
+    FG_SLATE="\033[38;2;70;80;100m"
+    FG_DIFF_ADD="\033[38;2;120;220;120m"
+    FG_DIFF_DEL="\033[38;2;255;120;120m"
+
+    DIFF_SEGMENT="${LAST_BG}${BG_SLATE}${RESET}${BOLD}${BG_SLATE} ${FG_DIFF_ADD}+${LINES_ADDED}${FG_WHITE},${FG_DIFF_DEL}-${LINES_REMOVED}${RESET}${BG_SLATE} ${RESET}"
+    SEGMENTS="${SEGMENTS}${DIFF_SEGMENT}"
+    LAST_BG="${FG_SLATE}"
+  fi
+fi
+
 # Maximum effort quips easter egg 💀
-if [[ "$EFFORT" == "max" ]]; then
+STATUSLINE_CONFIG="$HOME/.claude/hooks/statusline-config.json"
+SHOW_QUIPS=$(jq -r '.showQuips // true' "$STATUSLINE_CONFIG" 2>/dev/null || echo "true")
+QUIP_ROTATE=$(jq -r '.quipRotateSeconds // 30' "$STATUSLINE_CONFIG" 2>/dev/null || echo "30")
+QUIP_TRIGGERS=$(jq -r '.quipTriggers // ["xhigh","max"] | .[]' "$STATUSLINE_CONFIG" 2>/dev/null || echo -e "xhigh\nmax")
+
+EFFORT_SETTING=$(jq -r '.effortLevel // empty' ~/.claude/settings.json 2>/dev/null)
+QUIP_MATCH=false
+while IFS= read -r trigger; do
+  [[ "$EFFORT_SETTING" == "$trigger" || "$EFFORT" == "$trigger" ]] && QUIP_MATCH=true
+done <<< "$QUIP_TRIGGERS"
+
+if [[ "$SHOW_QUIPS" == "true" ]] && [[ "$QUIP_MATCH" == "true" ]]; then
   QUIPS=(
     "MAXIMUM EFFORT"
     "CHIMICHANGA TIME"
@@ -293,7 +355,11 @@ if [[ "$EFFORT" == "max" ]]; then
     "have you seen my chimichangas"
     "zip it Thanos"
   )
-  QUIP_IDX=$(( $(date +%s) / 4 % ${#QUIPS[@]} ))
+  if [[ "$QUIP_ROTATE" -gt 0 ]] 2>/dev/null; then
+    QUIP_IDX=$(( $(date +%s) / QUIP_ROTATE % ${#QUIPS[@]} ))
+  else
+    QUIP_IDX=$(( RANDOM % ${#QUIPS[@]} ))
+  fi
   QUIP="${QUIPS[$QUIP_IDX]}"
 
   BG_RED="\033[48;2;200;40;40m"
@@ -353,7 +419,6 @@ if [[ -n "$USAGE_TEXT" ]]; then
   fi
 
   if [[ "$LAST_BG" == "$FG_DARK" ]]; then
-    # Already in dark segment, just append
     USAGE_SEGMENT="${USAGE_FG}${BG_DARK} 📊 ${USAGE_TEXT} ${RESET}"
   else
     USAGE_SEGMENT="${LAST_BG}${BG_DARK}${RESET}${USAGE_FG}${BG_DARK} 📊 ${USAGE_TEXT} ${RESET}"
@@ -368,11 +433,29 @@ SEGMENTS="${SEGMENTS}${LAST_BG}${RESET}"
 echo -e "${SEGMENTS}"
 ```
 
-### Step 2: Make it executable
+### Step 2: Create the config file
+
+Write this file to `~/.claude/hooks/statusline-config.json`:
+
+```json
+{
+  "quipTriggers": ["xhigh", "max"],
+  "quipRotateSeconds": 30,
+  "showQuips": true
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `quipTriggers` | `["xhigh", "max"]` | Effort levels that activate the quips segment. Matches against `effortLevel` in settings.json and the session's `effort.level`. |
+| `quipRotateSeconds` | `30` | Seconds between quip rotation. Set to `0` to pick a random quip per refresh instead of cycling. |
+| `showQuips` | `true` | Set to `false` to disable the quips segment entirely. |
+
+### Step 3: Make it executable
 
 Run: `chmod +x ~/.claude/hooks/statusline.sh`
 
-### Step 3: Configure Claude Code settings
+### Step 4: Configure Claude Code settings
 
 Add the following to the user's `~/.claude/settings.json` (merge into existing config):
 
@@ -389,9 +472,9 @@ Add the following to the user's `~/.claude/settings.json` (merge into existing c
 
 Use the `~` path so it works across machines.
 
-### Step 4: Verify
+### Step 5: Verify
 
-Tell the user to restart Claude Code. They should see the powerline status bar immediately. To trigger the max effort easter egg, run `/effort` and set it to max.
+Tell the user to restart Claude Code. They should see the powerline status bar immediately. To trigger the effort quips easter egg, set `effortLevel` to `"xhigh"` in `~/.claude/settings.json`, or run `/effort` and set it to max.
 
 ## Requirements
 
@@ -400,7 +483,8 @@ Tell the user to restart Claude Code. They should see the powerline status bar i
 
 ## Customization
 
-Users can customize the quips array, colors, or segment order by editing `~/.claude/hooks/statusline.sh` directly after installation. The script is self-contained with no external dependencies beyond `jq`.
+- **Quip behavior** — edit `~/.claude/hooks/statusline-config.json` to control triggers, rotation speed, and visibility
+- **Colors, segments, quip text** — edit `~/.claude/hooks/statusline.sh` directly
 
 ## Credits
 
