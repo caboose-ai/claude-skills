@@ -1,11 +1,11 @@
 ---
 name: maximum-effort-statusline
-description: Powerline-style Claude Code status bar with dynamic segments (directory, model, cost, git) and a rotating quips easter egg when effort is set to max
+description: Powerline-style Claude Code status bar with dynamic segments (directory, model, cost, git, usage pace) and a rotating quips easter egg when effort is set to max
 ---
 
 # Maximum Effort Status Line
 
-A powerline-style status bar for Claude Code that shows directory, model, cost/tokens, and git info — plus a rotating quips easter egg when you crank effort to max.
+A powerline-style status bar for Claude Code that shows directory, model, cost/tokens, git, and usage pace — plus a rotating quips easter egg when you crank effort to max.
 
 ![Maximum Effort Status Line](https://raw.githubusercontent.com/caboose-ai/claude-skills/main/maximum-effort-statusline/assets/statusline-preview.png)
 
@@ -17,9 +17,12 @@ Adds a colorful, dynamically-sized status line to Claude Code with these segment
 - **🧠/⚡/🚀 Model** — detected model with emoji (green)
 - **💀 Max Effort Quips** — rotating one-liners when effort is set to max (red) — a fun motivational easter egg
 - **💵 Cost/Tokens** — session spend and token count (yellow)
-- **Git Info** — branch, status, and diff stats via `ccstatusline` (dark)
+- ** Git** — branch with status indicators: `!` modified, `?` untracked, `+` staged (dark)
+- **📊 Usage Pace** — 5h/7d rate limit pace tracking with time-to-reset (dark, conditional)
 
 Segments use powerline-style arrow transitions between colored blocks.
+
+Usage pace tracking inspired by [ericboehs' statusline gist](https://gist.github.com/ericboehs/c4340c6febd1b9848eb1656197bf17ca).
 
 ## Installation
 
@@ -33,7 +36,8 @@ Write this file to `~/.claude/hooks/statusline.sh`:
 #!/usr/bin/env bash
 
 # Maximum Effort Status Line for Claude Code
-# Reads session context from stdin (JSON) and outputs a powerline-style status bar
+# Powerline-style status bar with directory, model, cost, git, and usage pace
+# Usage pace tracking inspired by https://gist.github.com/ericboehs/c4340c6febd1b9848eb1656197bf17ca
 
 # Read stdin (session context JSON) with timeout
 if command -v timeout &> /dev/null; then
@@ -42,27 +46,39 @@ else
   SESSION_DATA=$(cat 2>/dev/null || echo '{}')
 fi
 
-# Get terminal width (default to 80 if unavailable)
+NOW=$(date +%s)
 TERM_WIDTH=${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}
 
-# Get current working directory
-CWD="${PWD}"
+# --- Parse session data ---
+if command -v jq &> /dev/null && [[ -n "$SESSION_DATA" ]]; then
+  MODEL=$(echo "$SESSION_DATA" | jq -r 'if (.model | type) == "object" then .model.id // .model.display_name // empty elif .model then .model else empty end' 2>/dev/null)
+  TOKENS=$(echo "$SESSION_DATA" | jq -r '.total_input_tokens // .tokensUsed // empty' 2>/dev/null)
+  COST=$(echo "$SESSION_DATA" | jq -r '.total_cost_usd // .costUSD // empty' 2>/dev/null)
+  EFFORT=$(echo "$SESSION_DATA" | jq -r '.effort.level // empty' 2>/dev/null)
+  CURRENT_DIR=$(echo "$SESSION_DATA" | jq -r '.workspace.current_dir // empty' 2>/dev/null)
+else
+  MODEL=""
+  TOKENS=""
+  COST=""
+  EFFORT=""
+  CURRENT_DIR=""
+fi
+
+[[ -z "$CURRENT_DIR" ]] && CURRENT_DIR="$PWD"
+
+# --- Directory shortening ---
+CWD="$CURRENT_DIR"
 HOME_DIR="${HOME}"
 
-# Shorten directory path (replace home with ~)
 if [[ "$CWD" == "$HOME_DIR"* ]]; then
   CWD_SHORT="~${CWD#$HOME_DIR}"
 else
   CWD_SHORT="$CWD"
 fi
 
-# Calculate available width for directory (reserve space for other segments)
 DIR_MAX_WIDTH=$((TERM_WIDTH - 70))
-if [[ $DIR_MAX_WIDTH -lt 20 ]]; then
-  DIR_MAX_WIDTH=20
-fi
+[[ $DIR_MAX_WIDTH -lt 20 ]] && DIR_MAX_WIDTH=20
 
-# Truncate path dynamically based on available width
 if [[ ${#CWD_SHORT} -gt $DIR_MAX_WIDTH ]]; then
   if [[ $DIR_MAX_WIDTH -lt 30 ]]; then
     BASENAME=$(basename "$CWD_SHORT")
@@ -88,20 +104,134 @@ if [[ ${#CWD_SHORT} -gt $DIR_MAX_WIDTH ]]; then
   fi
 fi
 
-# Parse session data with jq (if available)
-if command -v jq &> /dev/null && [[ -n "$SESSION_DATA" ]]; then
-  MODEL=$(echo "$SESSION_DATA" | jq -r 'if (.model | type) == "object" then .model.id // .model.display_name // empty elif .model then .model else empty end' 2>/dev/null)
-  TOKENS=$(echo "$SESSION_DATA" | jq -r '.total_input_tokens // .tokensUsed // empty' 2>/dev/null)
-  COST=$(echo "$SESSION_DATA" | jq -r '.total_cost_usd // .costUSD // empty' 2>/dev/null)
-  EFFORT=$(echo "$SESSION_DATA" | jq -r '.effort.level // empty' 2>/dev/null)
-else
-  MODEL=""
-  TOKENS=""
-  COST=""
-  EFFORT=""
+# --- Git info (branch + status indicators) ---
+GIT_BRANCH=""
+GIT_INDICATORS=""
+if [[ -d "$CURRENT_DIR/.git" ]] || git -C "$CURRENT_DIR" rev-parse --git-dir &>/dev/null; then
+  GIT_BRANCH=$(git -C "$CURRENT_DIR" branch --show-current 2>/dev/null)
+  if [[ -n "$GIT_BRANCH" ]]; then
+    [[ ${#GIT_BRANCH} -gt 30 ]] && GIT_BRANCH="${GIT_BRANCH:0:29}…"
+    GIT_STATUS=$(git -C "$CURRENT_DIR" status --porcelain 2>/dev/null | head -20)
+    if [[ -n "$GIT_STATUS" ]]; then
+      echo "$GIT_STATUS" | grep -q '^.[MD]' && GIT_INDICATORS="${GIT_INDICATORS}!"
+      echo "$GIT_STATUS" | grep -q '^??' && GIT_INDICATORS="${GIT_INDICATORS}?"
+      echo "$GIT_STATUS" | grep -q '^[MADRC]' && GIT_INDICATORS="${GIT_INDICATORS}+"
+    fi
+  fi
 fi
 
-# ANSI color codes
+# --- Claude usage pace tracking (5h/7d windows) ---
+# Fetches usage in background, reads from cache to avoid blocking
+USAGE_TEXT=""
+USAGE_CACHE="/tmp/claude-usage-cache"
+CACHE_MAX_AGE=120
+
+if [[ -f "$USAGE_CACHE" ]] && [[ $(( NOW - $(stat -f%m "$USAGE_CACHE" 2>/dev/null || echo 0) )) -lt $CACHE_MAX_AGE ]]; then
+  CLAUDE_USAGE=$(cat "$USAGE_CACHE")
+else
+  # Refresh cache in background
+  (
+    TOKEN=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null)
+    if [[ -n "$TOKEN" ]]; then
+      RESP=$(curl -s --max-time 5 'https://api.anthropic.com/api/oauth/usage' \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "anthropic-beta: oauth-2025-04-20" \
+        -H "Content-Type: application/json" 2>/dev/null)
+      FIVE=$(echo "$RESP" | jq -r '.five_hour.utilization // empty' 2>/dev/null | cut -d. -f1)
+      SEVEN=$(echo "$RESP" | jq -r '.seven_day.utilization // empty' 2>/dev/null | cut -d. -f1)
+      FIVE_RESET=$(echo "$RESP" | jq -r '.five_hour.resets_at // empty' 2>/dev/null)
+      SEVEN_RESET=$(echo "$RESP" | jq -r '.seven_day.resets_at // empty' 2>/dev/null)
+      if [[ -n "$FIVE" ]] && [[ -n "$SEVEN" ]]; then
+        FIVE_EPOCH=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "$(echo "$FIVE_RESET" | cut -d. -f1)" +%s 2>/dev/null || echo "0")
+        SEVEN_EPOCH=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "$(echo "$SEVEN_RESET" | cut -d. -f1)" +%s 2>/dev/null || echo "0")
+        echo "${FIVE}:${SEVEN}:${FIVE_EPOCH}:${SEVEN_EPOCH}" > "$USAGE_CACHE"
+      fi
+    fi
+  ) &
+  [[ -f "$USAGE_CACHE" ]] && CLAUDE_USAGE=$(cat "$USAGE_CACHE")
+fi
+
+if [[ -n "$CLAUDE_USAGE" ]]; then
+  FIVE_PCT=$(echo "$CLAUDE_USAGE" | cut -d: -f1)
+  SEVEN_PCT=$(echo "$CLAUDE_USAGE" | cut -d: -f2)
+  FIVE_RESET_EPOCH=$(echo "$CLAUDE_USAGE" | cut -d: -f3)
+  SEVEN_RESET_EPOCH=$(echo "$CLAUDE_USAGE" | cut -d: -f4)
+
+  fmt_reset() {
+    local reset_epoch=$1
+    if [[ -n "$reset_epoch" ]] && [[ "$reset_epoch" -gt 0 ]] 2>/dev/null; then
+      local remaining=$(( reset_epoch - NOW ))
+      [[ "$remaining" -lt 0 ]] && remaining=0
+      if [[ "$remaining" -lt 3600 ]]; then
+        echo "$((remaining / 60))m"
+      elif [[ "$remaining" -lt 86400 ]]; then
+        local h=$((remaining / 3600))
+        local m=$(( (remaining % 3600) / 60 ))
+        if [[ "$m" -ge 45 ]]; then echo "$(( h + 1 ))h"
+        elif [[ "$m" -ge 15 ]]; then echo "${h}.5h"
+        else echo "${h}h"; fi
+      else
+        local d=$((remaining / 86400))
+        echo "${d}d"
+      fi
+    fi
+  }
+
+  pace_ahead() {
+    local usage=$1 reset_epoch=$2 window_secs=$3
+    if [[ "$reset_epoch" -gt 0 ]] 2>/dev/null; then
+      local remaining=$(( reset_epoch - NOW ))
+      [[ "$remaining" -lt 0 ]] && remaining=0
+      local elapsed=$(( window_secs - remaining ))
+      [[ "$elapsed" -lt 0 ]] && elapsed=0
+      local expected=$(( elapsed * 100 / window_secs ))
+      echo $(( usage - expected ))
+    else
+      echo 0
+    fi
+  }
+
+  PACE_AHEAD_THRESHOLD=10
+  PACE_BEHIND_THRESHOLD=25
+  USAGE_ALWAYS_SHOW=80
+
+  # 5h window (18000s)
+  if [[ "$FIVE_PCT" -gt 0 ]] 2>/dev/null; then
+    FIVE_AHEAD=$(pace_ahead "$FIVE_PCT" "$FIVE_RESET_EPOCH" 18000)
+    FIVE_BEHIND=$(( -FIVE_AHEAD ))
+    if [[ "$FIVE_AHEAD" -ge "$PACE_AHEAD_THRESHOLD" ]] 2>/dev/null || [[ "$FIVE_BEHIND" -ge "$PACE_BEHIND_THRESHOLD" ]] 2>/dev/null || [[ "$FIVE_PCT" -ge "$USAGE_ALWAYS_SHOW" ]] 2>/dev/null; then
+      if [[ "$FIVE_AHEAD" -gt 0 ]] 2>/dev/null; then
+        USAGE_TEXT="5h:+${FIVE_AHEAD}%@${FIVE_PCT}%"
+      else
+        USAGE_TEXT="5h:${FIVE_AHEAD}%"
+      fi
+      if [[ "$FIVE_PCT" -ge 80 ]] 2>/dev/null; then
+        FIVE_RESET_STR=$(fmt_reset "$FIVE_RESET_EPOCH")
+        [[ -n "$FIVE_RESET_STR" ]] && USAGE_TEXT="${USAGE_TEXT}↻${FIVE_RESET_STR}"
+      fi
+    fi
+  fi
+
+  # 7d window (604800s)
+  if [[ "$SEVEN_PCT" -gt 0 ]] 2>/dev/null; then
+    SEVEN_AHEAD=$(pace_ahead "$SEVEN_PCT" "$SEVEN_RESET_EPOCH" 604800)
+    SEVEN_BEHIND=$(( -SEVEN_AHEAD ))
+    if [[ "$SEVEN_AHEAD" -ge "$PACE_AHEAD_THRESHOLD" ]] 2>/dev/null || [[ "$SEVEN_BEHIND" -ge "$PACE_BEHIND_THRESHOLD" ]] 2>/dev/null || [[ "$SEVEN_PCT" -ge "$USAGE_ALWAYS_SHOW" ]] 2>/dev/null; then
+      if [[ "$SEVEN_AHEAD" -gt 0 ]] 2>/dev/null; then
+        SEVEN_LABEL="7d:+${SEVEN_AHEAD}%@${SEVEN_PCT}%"
+      else
+        SEVEN_LABEL="7d:${SEVEN_AHEAD}%"
+      fi
+      if [[ "$SEVEN_PCT" -ge 80 ]] 2>/dev/null; then
+        SEVEN_RESET_STR=$(fmt_reset "$SEVEN_RESET_EPOCH")
+        [[ -n "$SEVEN_RESET_STR" ]] && SEVEN_LABEL="${SEVEN_LABEL}↻${SEVEN_RESET_STR}"
+      fi
+      [[ -n "$USAGE_TEXT" ]] && USAGE_TEXT="${USAGE_TEXT} ${SEVEN_LABEL}" || USAGE_TEXT="${SEVEN_LABEL}"
+    fi
+  fi
+fi
+
+# --- ANSI color codes ---
 RESET="\033[0m"
 BOLD="\033[1m"
 BG_PURPLE="\033[48;2;150;100;200m"
@@ -112,16 +242,21 @@ FG_BLACK="\033[38;2;31;36;48m"
 FG_PURPLE="\033[38;2;150;100;200m"
 FG_GREEN="\033[38;2;120;200;120m"
 FG_YELLOW="\033[38;2;255;200;100m"
+FG_DARK="\033[38;2;35;40;52m"
+FG_WHITE="\033[38;2;220;220;220m"
+FG_MUTED="\033[38;2;140;145;160m"
+FG_WARN="\033[38;2;255;180;80m"
+FG_CRIT="\033[38;2;255;100;100m"
 
-# Build segments
+# === Build segments ===
 SEGMENTS=""
 
-# Directory segment
+# Directory segment 📂
 DIR_SEGMENT="${BOLD}${FG_BLACK}${BG_PURPLE} 📂 ${CWD_SHORT} ${RESET}"
 SEGMENTS="${DIR_SEGMENT}"
 LAST_BG="${FG_PURPLE}"
 
-# Model segment with emoji (if available)
+# Model segment with emoji
 if [[ -n "$MODEL" ]]; then
   case "$MODEL" in
     *opus*|*Opus*) MODEL_EMOJI="🧠" ;;
@@ -139,7 +274,7 @@ if [[ -n "$MODEL" ]]; then
   LAST_BG="${FG_GREEN}"
 fi
 
-# Maximum effort quips easter egg
+# Maximum effort quips easter egg 💀
 if [[ "$EFFORT" == "max" ]]; then
   QUIPS=(
     "MAXIMUM EFFORT"
@@ -163,14 +298,13 @@ if [[ "$EFFORT" == "max" ]]; then
 
   BG_RED="\033[48;2;200;40;40m"
   FG_RED="\033[38;2;200;40;40m"
-  FG_WHITE="\033[38;2;255;255;255m"
 
-  DP_SEGMENT="${LAST_BG}${BG_RED}${RESET}${BOLD}${FG_WHITE}${BG_RED} 💀 ${QUIP} ${RESET}"
+  DP_SEGMENT="${LAST_BG}${BG_RED}${RESET}${BOLD}\033[38;2;255;255;255m${BG_RED} 💀 ${QUIP} ${RESET}"
   SEGMENTS="${SEGMENTS}${DP_SEGMENT}"
   LAST_BG="${FG_RED}"
 fi
 
-# Cost/tokens segment (if available)
+# Cost/tokens segment 💵
 if [[ -n "$COST" ]] || [[ -n "$TOKENS" ]]; then
   COST_TEXT=""
 
@@ -180,13 +314,14 @@ if [[ -n "$COST" ]] || [[ -n "$TOKENS" ]]; then
   fi
 
   if [[ -n "$TOKENS" ]]; then
-    if [[ $TOKENS -gt 1000 ]]; then
-      TOKENS_K=$(awk "BEGIN {printf \"%.0fk\", $TOKENS/1000}" 2>/dev/null || echo "${TOKENS}k")
-      TOKENS_TEXT="${TOKENS_K}"
+    if [[ $TOKENS -gt 1000000 ]]; then
+      TOKENS_FMT=$(awk "BEGIN {printf \"%.1fM\", $TOKENS/1000000}" 2>/dev/null)
+    elif [[ $TOKENS -gt 1000 ]]; then
+      TOKENS_FMT=$(awk "BEGIN {printf \"%.0fk\", $TOKENS/1000}" 2>/dev/null || echo "${TOKENS}k")
     else
-      TOKENS_TEXT="${TOKENS}"
+      TOKENS_FMT="${TOKENS}"
     fi
-    COST_TEXT="${COST_TEXT:+$COST_TEXT }${TOKENS_TEXT}"
+    COST_TEXT="${COST_TEXT:+$COST_TEXT }${TOKENS_FMT}"
   fi
 
   COST_SEGMENT="${LAST_BG}${BG_YELLOW}${RESET}${BOLD}${FG_BLACK}${BG_YELLOW} 💵 ${COST_TEXT} ${RESET}"
@@ -194,21 +329,41 @@ if [[ -n "$COST" ]] || [[ -n "$TOKENS" ]]; then
   LAST_BG="${FG_YELLOW}"
 fi
 
-# Get git info from ccstatusline (try bunx, fall back to npx)
-if command -v bunx &> /dev/null; then
-  GIT_INFO=$(echo "$SESSION_DATA" | bunx -y ccstatusline@latest 2>/dev/null)
-elif command -v npx &> /dev/null; then
-  GIT_INFO=$(echo "$SESSION_DATA" | npx -y ccstatusline@latest 2>/dev/null)
-else
-  GIT_INFO=""
+# Git segment (branch + status indicators)
+if [[ -n "$GIT_BRANCH" ]]; then
+  GIT_TEXT=" ${GIT_BRANCH}"
+  if [[ -n "$GIT_INDICATORS" ]]; then
+    GIT_TEXT="${GIT_TEXT} [${GIT_INDICATORS}]"
+  fi
+
+  GIT_SEGMENT="${LAST_BG}${BG_DARK}${RESET}${BOLD}${FG_WHITE}${BG_DARK}${GIT_TEXT} ${RESET}"
+  SEGMENTS="${SEGMENTS}${GIT_SEGMENT}"
+  LAST_BG="${FG_DARK}"
 fi
 
-# Add transition to git section
-if [[ -n "$GIT_INFO" ]]; then
-  SEGMENTS="${SEGMENTS}${LAST_BG}${BG_DARK}${RESET}${GIT_INFO}"
-else
-  SEGMENTS="${SEGMENTS}${RESET}"
+# Usage pace segment (only shows when pace is notable)
+if [[ -n "$USAGE_TEXT" ]]; then
+  # Color based on severity
+  if echo "$USAGE_TEXT" | grep -qE '\+[2-9][0-9]%|↻'; then
+    USAGE_FG="${FG_CRIT}"
+  elif echo "$USAGE_TEXT" | grep -qE '\+[1-9]'; then
+    USAGE_FG="${FG_WARN}"
+  else
+    USAGE_FG="${FG_MUTED}"
+  fi
+
+  if [[ "$LAST_BG" == "$FG_DARK" ]]; then
+    # Already in dark segment, just append
+    USAGE_SEGMENT="${USAGE_FG}${BG_DARK} 📊 ${USAGE_TEXT} ${RESET}"
+  else
+    USAGE_SEGMENT="${LAST_BG}${BG_DARK}${RESET}${USAGE_FG}${BG_DARK} 📊 ${USAGE_TEXT} ${RESET}"
+  fi
+  SEGMENTS="${SEGMENTS}${USAGE_SEGMENT}"
+  LAST_BG="${FG_DARK}"
 fi
+
+# Final transition
+SEGMENTS="${SEGMENTS}${LAST_BG}${RESET}"
 
 echo -e "${SEGMENTS}"
 ```
@@ -241,9 +396,12 @@ Tell the user to restart Claude Code. They should see the powerline status bar i
 ## Requirements
 
 - `jq` — for parsing session JSON (most systems have it; `brew install jq` on macOS)
-- `ccstatusline` — optional npm package for git info segment (auto-installed via npx/bunx on first run)
 - A terminal that supports 24-bit (truecolor) ANSI — iTerm2, WezTerm, Ghostty, Kitty, Windows Terminal all work
 
 ## Customization
 
 Users can customize the quips array, colors, or segment order by editing `~/.claude/hooks/statusline.sh` directly after installation. The script is self-contained with no external dependencies beyond `jq`.
+
+## Credits
+
+Usage pace tracking inspired by [ericboehs' statusline gist](https://gist.github.com/ericboehs/c4340c6febd1b9848eb1656197bf17ca).
