@@ -1,34 +1,37 @@
-# Maximum Effort Status Line
+# AI Skills
+
+Reusable Claude/Codex skills published from `caboose-ai/ai-skills`.
+
+Each top-level directory is an installable skill. Skill-specific documentation lives inside the skill folder.
+
+## Available Skills
+
+### Maximum Effort Status Line
 
 Powerline-style status bar for Claude Code with dynamic segments and a rotating quips easter egg when effort is set to max.
 
-![Maximum Effort Status Line](https://raw.githubusercontent.com/caboose-ai/claude-skills/main/maximum-effort-statusline/assets/statusline-preview.png)
-
-## Segments
-
-- **📂 Directory** — smart-truncated working directory (purple)
-- **🧠/⚡/🚀 Model** — detected model with emoji (green)
-- **💀 Max Effort Quips** — rotating one-liners when effort is max (red)
-- **💵 Cost/Tokens** — session spend and token count (yellow)
-- ** Git** — branch with status indicators: `!` modified, `?` untracked, `+` staged (dark)
-- **📊 Usage Pace** — 5h/7d rate limit pace with time-to-reset (dark, shows only when notable)
-
-## Install
+![Maximum Effort Status Line](https://raw.githubusercontent.com/caboose-ai/ai-skills/main/maximum-effort-statusline/assets/statusline-preview.png)
 
 ```bash
-npx skills add caboose-ai/claude-skills@maximum-effort-statusline -g
+npx skills add caboose-ai/ai-skills@maximum-effort-statusline -g
 ```
 
-Then restart Claude Code. Run `/effort` and set to max to trigger the easter egg.
+See [maximum-effort-statusline/README.md](maximum-effort-statusline/README.md) for details.
 
-## Requirements
+### Repo Agent Guidance Generator
 
-- `jq` — for parsing session JSON (`brew install jq` on macOS)
-- Truecolor terminal (iTerm2, WezTerm, Ghostty, Kitty, Windows Terminal)
+Crawls a repository read-only, coordinates focused specialist reviews, and synthesizes agentic coding guidance proposals such as `AGENTS.md`, nested guidance candidates, and compatibility pointer files.
 
-## Credits
+```bash
+npx skills add caboose-ai/ai-skills@repo-agent-guidance-generator -g
+```
 
-Usage pace tracking inspired by [ericboehs' statusline gist](https://gist.github.com/ericboehs/c4340c6febd1b9848eb1656197bf17ca).
+See [repo-agent-guidance-generator/README.md](repo-agent-guidance-generator/README.md) for details.
+
+## Repository Layout
+
+- `maximum-effort-statusline/`: Claude Code status line skill.
+- `repo-agent-guidance-generator/`: read-only repository guidance generation skill.
 
 ## License
 
