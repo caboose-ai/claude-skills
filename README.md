@@ -18,6 +18,16 @@ npx skills add caboose-ai/ai-skills@maximum-effort-statusline -g
 
 See [maximum-effort-statusline/README.md](maximum-effort-statusline/README.md) for details.
 
+### Homelab Architecture Auditor
+
+Audits `caboose-ai.io` homelab architecture consistency across service manifests, Docker Compose, Authentik SSO providers, dashboard inclusion, smoke tests, docs, and automation guardrails.
+
+```bash
+npx skills add caboose-ai/ai-skills@homelab-architecture-auditor -g
+```
+
+See [homelab-architecture-auditor/README.md](homelab-architecture-auditor/README.md) for details.
+
 ### Repo Agent Guidance Generator
 
 Crawls a repository read-only, coordinates focused specialist reviews, and synthesizes agentic coding guidance proposals such as `AGENTS.md`, nested guidance candidates, and compatibility pointer files.
@@ -31,6 +41,7 @@ See [repo-agent-guidance-generator/README.md](repo-agent-guidance-generator/READ
 ## Repository Layout
 
 - `maximum-effort-statusline/`: Claude Code status line skill.
+- `homelab-architecture-auditor/`: read-only caboose-ai.io homelab architecture consistency auditor.
 - `repo-agent-guidance-generator/`: read-only repository guidance generation skill.
 
 ## License
