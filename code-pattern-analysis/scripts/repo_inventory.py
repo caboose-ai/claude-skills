@@ -92,8 +92,17 @@ def is_secretish(path: Path) -> bool:
     return any(hint in lowered for hint in SECRET_HINTS)
 
 
+DOTDIR_ALLOWLIST = {".github", ".vscode", ".devcontainer"}
+
+
 def should_skip_dir(path: Path) -> bool:
-    return path.name in SKIP_DIRS or path.name.startswith(".")
+    if path.name in SKIP_DIRS:
+        return True
+    if is_secretish(path):
+        return True
+    if path.name.startswith(".") and path.name not in DOTDIR_ALLOWLIST:
+        return True
+    return False
 
 
 def main() -> int:
@@ -107,7 +116,15 @@ def main() -> int:
     if not root.is_dir():
         raise SystemExit(f"not a directory: {root}")
 
-    scan_root = root / args.scope if args.scope else root
+    if args.scope:
+        scope_path = Path(args.scope)
+        if scope_path.is_absolute() or ".." in scope_path.parts:
+            raise SystemExit(f"--scope must be a relative path within the repo: {args.scope}")
+        scan_root = (root / scope_path).resolve()
+        if not scan_root.is_relative_to(root):
+            raise SystemExit(f"--scope escapes repository root: {args.scope}")
+    else:
+        scan_root = root
     if not scan_root.is_dir():
         raise SystemExit(f"scope directory not found: {scan_root}")
 
@@ -148,6 +165,7 @@ def main() -> int:
     print("## File extensions (by count)")
     ext_counts: Counter[str] = Counter()
     total_files = 0
+    max_files = args.max_files
     for dirpath, dirnames, filenames in os.walk(scan_root):
         current = Path(dirpath)
         dirnames[:] = [d for d in dirnames if not should_skip_dir(current / d)]
@@ -158,6 +176,13 @@ def main() -> int:
             ext = path.suffix or "[none]"
             ext_counts[ext] += 1
             total_files += 1
+            if total_files >= max_files:
+                break
+        if total_files >= max_files:
+            dirnames.clear()
+            break
+    if total_files >= max_files:
+        print(f"(capped at {max_files} files)")
     print(f"Total files: {total_files}")
     for ext, count in ext_counts.most_common(30):
         pct = (count / total_files * 100) if total_files else 0

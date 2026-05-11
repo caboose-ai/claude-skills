@@ -57,5 +57,5 @@ Analyze a repository's code patterns and conventions, then produce actionable do
 ## Scoping
 
 - Default: analyze the entire repository.
-- Optional: user can specify a subdirectory (e.g., "analyze src/api/") or language filter.
+- Optional: user can specify a subdirectory (e.g., "analyze src/api/").
 - When scoped, report title and rules should reflect the scope clearly.
