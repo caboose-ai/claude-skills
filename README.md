@@ -38,11 +38,22 @@ npx skills add caboose-ai/ai-skills@repo-agent-guidance-generator -g
 
 See [repo-agent-guidance-generator/README.md](repo-agent-guidance-generator/README.md) for details.
 
+### Code Pattern Analysis
+
+Analyze code patterns and conventions in a repository, then produce actionable do/don't guidance for developers and AI agents. Dispatches parallel specialist agents for naming, structure, imports, error handling, API design, and state/data patterns.
+
+```bash
+npx skills add caboose-ai/ai-skills@code-pattern-analysis -g
+```
+
+See [code-pattern-analysis/README.md](code-pattern-analysis/README.md) for details.
+
 ## Repository Layout
 
 - `maximum-effort-statusline/`: Claude Code status line skill.
 - `homelab-architecture-auditor/`: read-only caboose-ai.io homelab architecture consistency auditor.
 - `repo-agent-guidance-generator/`: read-only repository guidance generation skill.
+- `code-pattern-analysis/`: read-only repository code pattern and convention analyzer.
 
 ## License
 
