@@ -1,0 +1,19 @@
+{
+  "name": "homelab-architecture-auditor",
+  "description": "Audit caboose-ai.io homelab architecture consistency across manifests, Compose, Authentik SSO, dashboard inclusion, smoke tests, docs, and automation guardrails.",
+  "author": {
+    "name": "Caboose AI"
+  },
+  "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/homelab-architecture-auditor",
+  "repository": "https://github.com/caboose-ai/ai-skills",
+  "license": "MIT",
+  "keywords": [
+    "homelab",
+    "architecture",
+    "audit",
+    "sso"
+  ],
+  "skills": [
+    "./"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "maximum-effort-statusline",
+  "description": "Powerline-style Claude Code status bar with dynamic segments and a rotating quips easter egg at xhigh/max effort.",
+  "author": {
+    "name": "Caboose AI"
+  },
+  "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/maximum-effort-statusline",
+  "repository": "https://github.com/caboose-ai/ai-skills",
+  "license": "MIT",
+  "keywords": [
+    "statusline",
+    "claude-code",
+    "usage"
+  ],
+  "skills": [
+    "./"
+  ]
+}

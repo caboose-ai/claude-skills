@@ -1,0 +1,78 @@
+{
+  "name": "caboose-ai-skills",
+  "owner": {
+    "name": "Caboose AI"
+  },
+  "description": "Reusable Claude Code skills from Caboose AI.",
+  "plugins": [
+    {
+      "name": "maximum-effort-statusline",
+      "source": "./maximum-effort-statusline",
+      "description": "Powerline-style Claude Code status bar with dynamic segments and a rotating quips easter egg at xhigh/max effort.",
+      "author": {
+        "name": "Caboose AI"
+      },
+      "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/maximum-effort-statusline",
+      "repository": "https://github.com/caboose-ai/ai-skills",
+      "license": "MIT",
+      "keywords": [
+        "statusline",
+        "claude-code",
+        "usage"
+      ],
+      "category": "productivity"
+    },
+    {
+      "name": "homelab-architecture-auditor",
+      "source": "./homelab-architecture-auditor",
+      "description": "Audit caboose-ai.io homelab architecture consistency across manifests, Compose, Authentik SSO, dashboard inclusion, smoke tests, docs, and automation guardrails.",
+      "author": {
+        "name": "Caboose AI"
+      },
+      "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/homelab-architecture-auditor",
+      "repository": "https://github.com/caboose-ai/ai-skills",
+      "license": "MIT",
+      "keywords": [
+        "homelab",
+        "architecture",
+        "audit",
+        "sso"
+      ],
+      "category": "devops"
+    },
+    {
+      "name": "repo-agent-guidance-generator",
+      "source": "./repo-agent-guidance-generator",
+      "description": "Generate repository-specific agent guidance from safe, read-only analysis.",
+      "author": {
+        "name": "Caboose AI"
+      },
+      "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/repo-agent-guidance-generator",
+      "repository": "https://github.com/caboose-ai/ai-skills",
+      "license": "MIT",
+      "keywords": [
+        "agents",
+        "guidance",
+        "repository-analysis"
+      ],
+      "category": "development"
+    },
+    {
+      "name": "code-pattern-analysis",
+      "source": "./code-pattern-analysis",
+      "description": "Analyze repository code patterns and produce actionable do/don't guidance for developers and AI agents.",
+      "author": {
+        "name": "Caboose AI"
+      },
+      "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/code-pattern-analysis",
+      "repository": "https://github.com/caboose-ai/ai-skills",
+      "license": "MIT",
+      "keywords": [
+        "code-patterns",
+        "conventions",
+        "repository-analysis"
+      ],
+      "category": "development"
+    }
+  ]
+}
