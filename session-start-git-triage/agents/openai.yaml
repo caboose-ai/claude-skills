@@ -1,0 +1,6 @@
+interface:
+  display_name: "Session Git Triage"
+  short_description: "Find the next safe repo action"
+  default_prompt: "Use $session-start-git-triage to inspect this repo state and tell me what is next."
+policy:
+  allow_implicit_invocation: true

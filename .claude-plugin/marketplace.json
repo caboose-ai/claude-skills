@@ -73,6 +73,42 @@
         "repository-analysis"
       ],
       "category": "development"
+    },
+    {
+      "name": "session-start-git-triage",
+      "source": "./session-start-git-triage",
+      "description": "Inspect Git branch state and dirty/untracked work to identify the next safe action at session start or resume.",
+      "author": {
+        "name": "Caboose AI"
+      },
+      "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/session-start-git-triage",
+      "repository": "https://github.com/caboose-ai/ai-skills",
+      "license": "MIT",
+      "keywords": [
+        "git",
+        "session-start",
+        "triage",
+        "workflow"
+      ],
+      "category": "development"
+    },
+    {
+      "name": "pre-pr-review-loop",
+      "source": "./pre-pr-review-loop",
+      "description": "Run local review, fixes, validation, PR publication, and Codex review loops before human handoff.",
+      "author": {
+        "name": "Caboose AI"
+      },
+      "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/pre-pr-review-loop",
+      "repository": "https://github.com/caboose-ai/ai-skills",
+      "license": "MIT",
+      "keywords": [
+        "pull-request",
+        "code-review",
+        "codex",
+        "workflow"
+      ],
+      "category": "development"
     }
   ]
 }
