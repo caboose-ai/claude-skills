@@ -1,0 +1,19 @@
+{
+  "name": "session-start-git-triage",
+  "description": "Inspect Git branch state and dirty/untracked work to identify the next safe action at session start or resume.",
+  "author": {
+    "name": "Caboose AI"
+  },
+  "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/session-start-git-triage",
+  "repository": "https://github.com/caboose-ai/ai-skills",
+  "license": "MIT",
+  "keywords": [
+    "git",
+    "session-start",
+    "triage",
+    "workflow"
+  ],
+  "skills": [
+    "./"
+  ]
+}

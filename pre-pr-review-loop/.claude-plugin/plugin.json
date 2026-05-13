@@ -1,0 +1,19 @@
+{
+  "name": "pre-pr-review-loop",
+  "description": "Run local review, fixes, validation, PR publication, and Codex review loops before human handoff.",
+  "author": {
+    "name": "Caboose AI"
+  },
+  "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/pre-pr-review-loop",
+  "repository": "https://github.com/caboose-ai/ai-skills",
+  "license": "MIT",
+  "keywords": [
+    "pull-request",
+    "code-review",
+    "codex",
+    "workflow"
+  ],
+  "skills": [
+    "./"
+  ]
+}
