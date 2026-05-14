@@ -58,24 +58,6 @@
       "category": "development"
     },
     {
-      "name": "session-start-git-triage",
-      "source": "./session-start-git-triage",
-      "description": "Inspect Git repository state at session start or resume and identify the safest next action.",
-      "author": {
-        "name": "Caboose AI"
-      },
-      "homepage": "https://github.com/caboose-ai/ai-skills/tree/main/session-start-git-triage",
-      "repository": "https://github.com/caboose-ai/ai-skills",
-      "license": "MIT",
-      "keywords": [
-        "git",
-        "resume",
-        "triage",
-        "worktree"
-      ],
-      "category": "development"
-    },
-    {
       "name": "code-pattern-analysis",
       "source": "./code-pattern-analysis",
       "description": "Analyze repository code patterns and produce actionable do/don't guidance for developers and AI agents.",
