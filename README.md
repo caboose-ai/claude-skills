@@ -20,6 +20,7 @@ Then install individual plugins:
 claude plugin install maximum-effort-statusline@caboose-ai-skills
 claude plugin install homelab-architecture-auditor@caboose-ai-skills
 claude plugin install repo-agent-guidance-generator@caboose-ai-skills
+claude plugin install session-start-git-triage@caboose-ai-skills
 claude plugin install code-pattern-analysis@caboose-ai-skills
 ```
 
@@ -77,6 +78,23 @@ npx skills add caboose-ai/ai-skills@repo-agent-guidance-generator -g
 
 See [repo-agent-guidance-generator/README.md](repo-agent-guidance-generator/README.md) for details.
 
+### Session Start Git Triage
+
+Inspects Git repository state when starting or resuming a session, summarizes
+what is going on, and identifies the safest next action.
+
+```bash
+claude plugin install session-start-git-triage@caboose-ai-skills
+```
+
+Standalone skill install:
+
+```bash
+npx skills add caboose-ai/ai-skills@session-start-git-triage -g
+```
+
+See [session-start-git-triage/README.md](session-start-git-triage/README.md) for details.
+
 ### Code Pattern Analysis
 
 Analyze code patterns and conventions in a repository, then produce actionable do/don't guidance for developers and AI agents. Dispatches parallel specialist agents for naming, structure, imports, error handling, API design, and state/data patterns.
@@ -99,6 +117,7 @@ See [code-pattern-analysis/README.md](code-pattern-analysis/README.md) for detai
 - `maximum-effort-statusline/`: Claude Code status line skill.
 - `homelab-architecture-auditor/`: read-only caboose-ai.io homelab architecture consistency auditor.
 - `repo-agent-guidance-generator/`: read-only repository guidance generation skill.
+- `session-start-git-triage/`: Git session resume and dirty worktree triage skill.
 - `code-pattern-analysis/`: read-only repository code pattern and convention analyzer.
 
 ## License
