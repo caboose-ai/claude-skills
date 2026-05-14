@@ -22,6 +22,8 @@ claude plugin install homelab-architecture-auditor@caboose-ai-skills
 claude plugin install repo-agent-guidance-generator@caboose-ai-skills
 claude plugin install session-start-git-triage@caboose-ai-skills
 claude plugin install code-pattern-analysis@caboose-ai-skills
+claude plugin install session-start-git-triage@caboose-ai-skills
+claude plugin install pre-pr-review-loop@caboose-ai-skills
 ```
 
 Plugin skills are namespaced by plugin, so `repo-agent-guidance-generator` exposes `/repo-agent-guidance-generator:repo-agent-guidance-generator`.
@@ -111,6 +113,38 @@ npx skills add caboose-ai/ai-skills@code-pattern-analysis -g
 
 See [code-pattern-analysis/README.md](code-pattern-analysis/README.md) for details.
 
+### Session Start Git Triage
+
+Inspect Git branch state, dirty work, untracked files, stashes, upstream state, and PR status at session start or resume, then identify the next safe action without taking ownership of unrelated changes.
+
+```bash
+claude plugin install session-start-git-triage@caboose-ai-skills
+```
+
+Standalone skill install:
+
+```bash
+npx skills add caboose-ai/ai-skills@session-start-git-triage -g
+```
+
+See [session-start-git-triage/README.md](session-start-git-triage/README.md) for details.
+
+### Pre PR Review Loop
+
+Run local review before publishing, fix actionable findings, verify, open or update the PR, request Codex review, loop through automated feedback, and leave the human as final reviewer.
+
+```bash
+claude plugin install pre-pr-review-loop@caboose-ai-skills
+```
+
+Standalone skill install:
+
+```bash
+npx skills add caboose-ai/ai-skills@pre-pr-review-loop -g
+```
+
+See [pre-pr-review-loop/README.md](pre-pr-review-loop/README.md) for details.
+
 ## Repository Layout
 
 - `.claude-plugin/marketplace.json`: Claude Code plugin marketplace catalog.
@@ -119,6 +153,8 @@ See [code-pattern-analysis/README.md](code-pattern-analysis/README.md) for detai
 - `repo-agent-guidance-generator/`: read-only repository guidance generation skill.
 - `session-start-git-triage/`: Git session resume and dirty worktree triage skill.
 - `code-pattern-analysis/`: read-only repository code pattern and convention analyzer.
+- `session-start-git-triage/`: Git branch and dirty-work triage at session start or resume.
+- `pre-pr-review-loop/`: local review, Codex review, and PR handoff workflow.
 
 ## License
 

@@ -1,31 +1,27 @@
 # Session Start Git Triage
 
-Reconstructs repository state at the start of a session or resume, then gives a
-concrete summary and the safest next action.
+Inspect a Git repository at session start or resume, classify dirty and
+untracked work, and identify the next safe action without taking ownership of
+unrelated changes.
 
 ## Install
-
-```bash
-claude plugin install session-start-git-triage@caboose-ai-skills
-```
-
-Standalone skill install:
 
 ```bash
 npx skills add caboose-ai/ai-skills@session-start-git-triage -g
 ```
 
-## When To Use
+## Use When
 
-Use this when opening a repo, resuming a prior session, or asking "what now" in
-a worktree that might have dirty, untracked, staged, stashed, ahead/behind, or
-unpushed changes.
+- starting work in a repo with unknown state
+- resuming a previous branch
+- the user asks "what now" or "continue"
+- there are untracked, modified, staged, stashed, ahead/behind, or unpushed
+  changes
 
-## What It Reports
+## What It Produces
 
-- branch and upstream tracking state
-- recent commits and committed vs uncommitted work
-- dirty, staged, untracked, generated, ambiguous, and unrelated files
-- stash state
-- PR and check state when a PR likely exists
+- branch and tracking state
+- committed vs uncommitted work
+- grouped untracked files
+- PR/check state when available
 - the safest next command or decision
