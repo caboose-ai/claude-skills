@@ -22,7 +22,6 @@ claude plugin install homelab-architecture-auditor@caboose-ai-skills
 claude plugin install repo-agent-guidance-generator@caboose-ai-skills
 claude plugin install session-start-git-triage@caboose-ai-skills
 claude plugin install code-pattern-analysis@caboose-ai-skills
-claude plugin install session-start-git-triage@caboose-ai-skills
 claude plugin install pre-pr-review-loop@caboose-ai-skills
 ```
 
